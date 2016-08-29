@@ -14,6 +14,7 @@ import scala.concurrent.duration._
 object MySlickApp extends App {
    val db = Database.forConfig("essential-slick ")
    val messages = TableQuery[MessageTable]
+   createSchema
    query1
    query2
    query3
@@ -22,9 +23,29 @@ object MySlickApp extends App {
    filterUsingFor
    val id = insertAndReturnId("HAL", "Goodbye Dave")
    println(id)
+   val newMessage = insertAndReturnWholeRecord("DAVE", "Point Taken")
+   println(newMessage)
+   val partialMessage = insertSingleColumn("DAVE")
+   println(partialMessage)
+
+   def insertSingleColumn(sender: String) : Long = {
+      val action = messages.map(_.sender) returning messages.map(_.id) += sender
+      val future = db.run(action)
+      Await.result(future, 2 seconds)
+   }
+
+   // this behaviour differs from db to db. some dbs will support
+   // messages returning messages += Message("x", "y")
+   def insertAndReturnWholeRecord(sender: String, content: String) : Message = {
+      val action = messages returning messages.map(_.id) into {(message, id) =>
+         message.copy(id = id)
+      } += Message(sender, Option(content))
+      val future = db.run(action)
+      Await.result(future, 2 seconds)
+   }
 
    def insertAndReturnId(sender: String, content: String) : Long = {
-      val action = messages returning messages.map(_.id) += Message(sender, content)
+      val action = messages returning messages.map(_.id) += Message(sender, Option(content))
       val future = db.run(action)
       Await.result(future, 2 seconds)
    }
@@ -114,31 +135,33 @@ object MySlickApp extends App {
       val createAction = messages.schema.create
 
       val freshMessages = Seq(
-         Message("Dave", "Hello HAL. Do you read me? HAL?"),
-         Message("HAL", "Affirmtive, Dave. I read you."),
-         Message("Dave", "Open the pod doors, HAL."),
-         Message("HAL", "I'm Sorry. Dave. I'm afraid, I cannot do that.")
+         Message("Dave", Some("Hello HAL. Do you read me? HAL?")),
+         Message("HAL", Some("Affirmtive, Dave. I read you.")),
+         Message("Dave", Some("Open the pod doors, HAL.")),
+         Message("HAL", Some("I'm Sorry. Dave. I'm afraid, I cannot do that."))
       )
 
       val insertAction = messages ++= freshMessages
       val finalAction = tableExists >> dropAction >> createAction >> insertAction
       val finalFuture = db.run(finalAction)
       finalFuture.onComplete {
-         case Success(s) => println("table initialized successfully "); db.close
-         case Failure(f) => println(f.getMessage); db.close
+         case Success(s) => println("table initialized successfully ")
+         case Failure(f) => println(f.getMessage)
       }
+      Await.result(finalFuture, 5 seconds)
    }
 
 
    scala.io.StdIn.readLine()
+   db.close
 }
 
-final case class Message (sender: String, content: String, id: Long = 0L)
+final case class Message (sender: String, content: Option[String], id: Long = 0L)
 
 final case class MessageTable(tag: Tag) extends Table[Message](tag, "Message") {
    def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
    def sender = column[String]("sender")
-   def content = column[String]("content")
+   def content = column[Option[String]]("content")
    def * = (sender, content, id) <> (Message.tupled, Message.unapply)
 }
-case class Foo(id: Long, content: String)
+case class Foo(id: Long, content: Option[String])
