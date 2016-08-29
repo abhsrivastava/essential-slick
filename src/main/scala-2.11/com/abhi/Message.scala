@@ -5,7 +5,8 @@ import slick.jdbc.meta.MTable
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Success, Failure}
-
+import scala.concurrent.Await
+import scala.concurrent.duration._
 /**
   * Created by abhsrivastava on 8/28/16.
   */
@@ -19,6 +20,14 @@ object MySlickApp extends App {
    (0 to 3).foreach(query4 _)
    count
    filterUsingFor
+   val id = insertAndReturnId("HAL", "Goodbye Dave")
+   println(id)
+
+   def insertAndReturnId(sender: String, content: String) : Long = {
+      val action = messages returning messages.map(_.id) += Message(sender, content)
+      val future = db.run(action)
+      Await.result(future, 2 seconds)
+   }
 
    def exists : Unit = {
       val query = for {
@@ -84,7 +93,6 @@ object MySlickApp extends App {
       }
    }
 
-
    def query1: Unit = {
       val action = messages.filter(_.sender === "HAL").map(t => t.content).result
       val f1 = db.run(action)
@@ -96,7 +104,6 @@ object MySlickApp extends App {
          println(c)
       }
    }
-
 
    def createSchema: Unit = {
       val tableExists = MTable.getTables map { tables =>
