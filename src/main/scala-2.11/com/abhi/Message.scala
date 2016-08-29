@@ -15,6 +15,62 @@ object MySlickApp extends App {
    val messages = TableQuery[MessageTable]
    query1
    query2
+   query3
+   (0 to 3).foreach(query4 _)
+   count
+   filterUsingFor
+
+   def exists : Unit = {
+      val query = for {
+         m <- messages if m.sender === "HAL"
+      } yield m
+      val future = db.run(query.exists.result)
+      for {
+         result <- future
+      } println(result)
+   }
+
+   def filterUsingFor : Unit = {
+      val query = for {
+         m <- messages if m.id === 1L
+      } yield m
+      val future = db.run(query.result)
+      for {
+         result <- future
+      } {
+         println("---------- filter using for ----------")
+         println(result)
+      }
+   }
+   def count : Unit = {
+      val action = messages.size.result
+      val future = db.run(action)
+      for {
+         length <- future
+      } println("the number of items in table is " + length)
+   }
+   def query4(n: Int) : Unit = {
+      val action = messages.drop(n).take(1).result
+      val future = db.run(action)
+      for {
+         result <- future // unpack future
+         m <- result // extract record
+      } {
+         println("--------- query4 ------------")
+         println(m)
+      }
+   }
+   def query3 : Unit = {
+      val action = messages.map(t => (t.sender ++ ": " ++ t.content)).result
+      val futureResult = db.run(action)
+      for {
+         sequence <- futureResult
+         data <- sequence
+      } {
+         println("--------- query3 ------------")
+         println(data)
+      }
+   }
 
    def query2: Unit = {
       val action = messages.filter(_.sender =!= "DAVE").map(t => (t.id, t.content) <> (Foo.tupled, Foo.unapply)).result
@@ -22,7 +78,10 @@ object MySlickApp extends App {
       for {
          records <- f1
          record <- records
-      } println(s"${record.id} ${record.content}")
+      } {
+         println("--------- query2 ------------")
+         println(s"${record.id} ${record.content}")
+      }
    }
 
 
@@ -32,7 +91,10 @@ object MySlickApp extends App {
       for {
          v <- f1
          c <- v
-      } println(c)
+      } {
+         println("--------- query1 ------------")
+         println(c)
+      }
    }
 
 
