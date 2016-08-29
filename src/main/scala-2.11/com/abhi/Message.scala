@@ -27,7 +27,23 @@ object MySlickApp extends App {
    println(newMessage)
    val partialMessage = insertSingleColumn("DAVE")
    println(partialMessage)
+   update("Ha Ha!!!")
+   insertMultipleAndReturnObjects.foreach(println)
 
+   def insertMultipleAndReturnObjects() : Seq[Message] = {
+      val seq = Seq(
+         Message("Foo", Some("Foo1")),
+         Message("Bar", Some("Bar1")),
+         Message("Baz", Some("Baz1"))
+      )
+      val action = messages returning messages.map(_.id) into {(message, id) => message.copy(id = id)} ++= seq
+      Await.result(db.run(action), 2 seconds)
+   }
+   def update(content: String) : Unit = {
+      val action = messages.filter(_.id === 7L).map(_.content).update(Option(content))
+      val future = db.run(action)
+      Await.result(future, 2 seconds)
+   }
    def insertSingleColumn(sender: String) : Long = {
       val action = messages.map(_.sender) returning messages.map(_.id) += sender
       val future = db.run(action)
